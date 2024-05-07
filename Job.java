@@ -26,6 +26,10 @@ public abstract class Job {
     public int getDuration() {
         return duration;
     }
+    public void Deneme(){
+        System.out.println("Deneme...");
+        System.out.println("Deneme 2..");
+    }
 
     // Abstract methods that must be implemented by subclasses
     public abstract void startNextTask();
