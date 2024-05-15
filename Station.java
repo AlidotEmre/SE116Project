@@ -1,73 +1,94 @@
-import java.util.List;
-import java.time.LocalTime;
+import java.util.*;
 
 public class Station {
     private String stationID;
     private List<TaskType> supportedTasks;
-    private int speed; // Task işlem hızı (unit/minute)
+    private int capacity;
+    private boolean multiFlag;
+    private boolean fifoFlag;
+    private Queue<Task> taskQueue = new LinkedList<>();
+    private List<Task> executingTasks = new ArrayList<>();
+    private Map<String, Double> taskSpeeds;
+    private Map<String, Double> taskSpeedVariations;
 
-    public Station(String stationID, List<TaskType> supportedTasks, int speed) {
+    public Station(String stationID, int capacity, boolean multiFlag, boolean fifoFlag, List<TaskType> supportedTasks, Map<String, Double> taskSpeeds, Map<String, Double> taskSpeedVariations) {
         this.stationID = stationID;
+        this.capacity = capacity;
+        this.multiFlag = multiFlag;
+        this.fifoFlag = fifoFlag;
         this.supportedTasks = supportedTasks;
-        this.speed = speed;
-    }
-
-    public void processTasks(List<Task> tasks) {
-        LocalTime currentTime = LocalTime.now();
-        for (Task task : tasks) {
-            if (supportedTasks.contains(task.getType())) {
-                task.execute(currentTime, speed);
-                currentTime = task.getEndTime(); // Sonraki görev için başlangıç zamanı güncellenir
-            } else {
-                System.out.println("Task type not supported by this station.");
-            }
-        }
-    }
-
-    public int getSpeed() {
-        return speed;
-    }
-
-    public List<TaskType> getSupportedTasks() {
-        return supportedTasks;
+        this.taskSpeeds = taskSpeeds;
+        this.taskSpeedVariations = taskSpeedVariations;
     }
 
     public String getStationID() {
         return stationID;
     }
 
-    public void setStationID(String stationID) {
-        this.stationID = stationID;
+    public List<TaskType> getSupportedTasks() {
+        return supportedTasks;
     }
 
-    public void setSpeed(int speed) {
-        this.speed = speed;
+    public int getCapacity() {
+        return capacity;
     }
 
-    public void setSupportedTasks(List<TaskType> supportedTasks) {
-        this.supportedTasks = supportedTasks;
+    public boolean isMultiFlag() {
+        return multiFlag;
     }
 
-
-    @Override
-    public String toString() {
-        return "Station{" +
-                "stationID='" + stationID + '\'' +
-                ", supportedTasks=" + taskTypesToString() +  // Desteklenen görev tiplerini dizeye döker
-                ", speed=" + speed +
-                '}';
+    public boolean isFifoFlag() {
+        return fifoFlag;
     }
 
-    private String taskTypesToString() {
-        StringBuilder sb = new StringBuilder("[");
+    public Queue<Task> getWaitingTasks() {
+        return taskQueue;
+    }
+
+    public List<Task> getExecutingTasks() {
+        return executingTasks;
+    }
+
+    public boolean supportsTaskType(String taskTypeID) {
         for (TaskType taskType : supportedTasks) {
-            sb.append(taskType.gettaskTypeID()).append(", ");
+            if (taskType.getTaskTypeID().equals(taskTypeID)) {
+                return true;
+            }
         }
-        if (!supportedTasks.isEmpty()) {
-            sb.setLength(sb.length() - 2); // Son virgülü siler
-        }
-        sb.append("]");
-        return sb.toString();
+        return false;
     }
 
+    public void addTaskToQueue(Task task) {
+        taskQueue.add(task);
+    }
+
+    public void startNextTask() {
+        if (!taskQueue.isEmpty() && executingTasks.size() < capacity) {
+            Task task = taskQueue.poll();
+            executingTasks.add(task);
+            System.out.println("Task " + task.getTaskTypeID() + " started at station " + stationID);
+        }
+    }
+
+    public void completeTask(Task task) {
+        executingTasks.remove(task);
+        System.out.println("Task " + task.getTaskTypeID() + " completed at station " + stationID);
+    }
+
+    public void displayStatus() {
+        System.out.println("Station " + stationID + " status:");
+        System.out.println("  Executing tasks: " + executingTasks);
+        System.out.println("  Waiting tasks: " + taskQueue);
+        System.out.println("  Capacity: " + capacity);
+        System.out.println("  MultiFlag: " + multiFlag);
+        System.out.println("  FIFOFlag: " + fifoFlag);
+    }
+
+    public double getTaskSpeed(String taskTypeID) {
+        return taskSpeeds.getOrDefault(taskTypeID, 0.0);
+    }
+
+    public double getTaskSpeedVariation(String taskTypeID) {
+        return taskSpeedVariations.getOrDefault(taskTypeID, 0.0);
+    }
 }
