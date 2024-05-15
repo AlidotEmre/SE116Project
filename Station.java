@@ -1,73 +1,82 @@
+import java.util.HashMap;
+import java.util.LinkedList;
 import java.util.List;
-import java.time.LocalTime;
+import java.util.Map;
+import java.util.Queue;
 
 public class Station {
-    private String stationID;
+    private String id;
+    private int maxCapacity;
+    private boolean multiFlag;
+    private boolean fifoFlag;
+    private Map<TaskType, Double> taskSpeeds;
+    private Map<TaskType, Double> taskSpeedVariations;
+    private Queue<Task> tasks;
     private List<TaskType> supportedTasks;
-    private int speed; // Task işlem hızı (unit/minute)
 
-    public Station(String stationID, List<TaskType> supportedTasks, int speed) {
-        this.stationID = stationID;
-        this.supportedTasks = supportedTasks;
-        this.speed = speed;
+    public Station(String id, int maxCapacity, boolean multiFlag, boolean fifoFlag, List<Task> supportedTasks) {
+        this.id = id;
+        this.maxCapacity = maxCapacity;
+        this.multiFlag = multiFlag;
+        this.fifoFlag = fifoFlag;
+        this.taskSpeeds = new HashMap<>();
+        this.taskSpeedVariations = new HashMap<>();
+        this.tasks = new LinkedList<>();
+        this.supportedTasks = this.supportedTasks;
     }
 
-    public void processTasks(List<Task> tasks) {
-        LocalTime currentTime = LocalTime.now();
-        for (Task task : tasks) {
-            if (supportedTasks.contains(task.getType())) {
-                task.execute(currentTime, speed);
-                currentTime = task.getEndTime(); // Sonraki görev için başlangıç zamanı güncellenir
+    public void assignTask(Task task) {
+        if (task != null && canAcceptTask(task)) {
+            if (fifoFlag) {
+                tasks.offer(task);
             } else {
-                System.out.println("Task type not supported by this station.");
+                startTask(task); // Directly start the task if FIFO is not required
             }
         }
     }
 
-    public int getSpeed() {
-        return speed;
+    public void startTask(Task task) {
+        if (task == null) {
+            System.out.println("Attempted to start a null task at Station " + id);
+            return;
+        }
+
+        Double speed = taskSpeeds.get(task.getType());
+        if (speed == null) {
+            System.out.println("Speed not defined for task type " + task.getType().getId() + " at Station " + id);
+            return;
+        }
+
+        Double variation = taskSpeedVariations.get(task.getType());
+        if (variation == null) {
+            variation = 0.0; // Default variation to 0 if not defined
+        }
+
+        double adjustedSpeed = speed * (1 + variation);
+        task.startExecution(adjustedSpeed);
+        System.out.println("Task " + task.getType().getId() + " started at Station " + id + " with adjusted speed: " + adjustedSpeed);
     }
 
-    public List<TaskType> getSupportedTasks() {
-        return supportedTasks;
+    public boolean canHandleTask(Task task) {
+        return taskSpeeds.containsKey(task.getType()); // Can handle task if speed is defined for its type
     }
 
-    public String getStationID() {
-        return stationID;
+    private boolean canAcceptTask(Task task) {
+        return (multiFlag || tasks.isEmpty()) && tasks.size() < maxCapacity;
     }
 
-    public void setStationID(String stationID) {
-        this.stationID = stationID;
+    public void addTaskTypeSpeed(TaskType taskType, double speed, double plusMinus) {
+        taskSpeeds.put(taskType, speed);
+        taskSpeedVariations.put(taskType, plusMinus);
     }
 
-    public void setSpeed(int speed) {
-        this.speed = speed;
+    public Map<TaskType, Double> getTaskSpeeds() {
+        return taskSpeeds;
     }
-
-    public void setSupportedTasks(List<TaskType> supportedTasks) {
-        this.supportedTasks = supportedTasks;
-    }
-
 
     @Override
     public String toString() {
-        return "Station{" +
-                "stationID='" + stationID + '\'' +
-                ", supportedTasks=" + taskTypesToString() +  // Desteklenen görev tiplerini dizeye döker
-                ", speed=" + speed +
-                '}';
+        return "Station{id='" + id + "', maxCapacity=" + maxCapacity + ", multiFlag=" + multiFlag +
+                ", fifoFlag=" + fifoFlag + ", taskSpeeds=" + taskSpeeds + ", taskSpeedVariations=" + taskSpeedVariations + "}";
     }
-
-    private String taskTypesToString() {
-        StringBuilder sb = new StringBuilder("[");
-        for (TaskType taskType : supportedTasks) {
-            sb.append(taskType.gettaskTypeID()).append(", ");
-        }
-        if (!supportedTasks.isEmpty()) {
-            sb.setLength(sb.length() - 2); // Son virgülü siler
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
 }

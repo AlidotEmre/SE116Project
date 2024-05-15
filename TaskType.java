@@ -1,35 +1,32 @@
 public class TaskType {
-    private String taskTypeID;
-    private int defaultSize;
+    private String id;
+    private double defaultSize;
 
-
-    public TaskType(String taskTypeID, int defaultSize) {
-        this.taskTypeID = taskTypeID;
+    public TaskType(String id, double defaultSize) {
+        this.id = id;
         this.defaultSize = defaultSize;
     }
 
-
-    public String gettaskTypeID() {
-        return taskTypeID;
+    public String getId() {
+        return id;
     }
 
-    public void setTaskTypeID(String taskTypeID) {
-        this.taskTypeID = taskTypeID;
+    public void setId(String id) {
+        this.id = id;
     }
 
-    public int getDefaultSize() {
+    public double getDefaultSize() {
         return defaultSize;
     }
 
-    public void setDefaultSize(int defaultSize) {
+    public void setDefaultSize(double defaultSize) {
         this.defaultSize = defaultSize;
     }
 
     @Override
     public String toString() {
-        return "TaskType{" +
-                "taskTypeID='" + taskTypeID + '\'' +
-                ", defaultSize=" + defaultSize +
-                '}';
+        return "TaskType{id='" + id + "', defaultSize=" + defaultSize + "}";
     }
+
+
 }
