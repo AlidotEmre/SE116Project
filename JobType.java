@@ -1,49 +1,36 @@
 import java.util.ArrayList;
+
 import java.util.List;
 
 public class JobType {
-    private String jobTypeID;  // İş tipinin benzersiz kimliği
-    private String name;       // İş tipinin ismi
-    private List<Task> tasks;  // Bu iş tipi için gerekli olan görev tiplerinin listesi
-    private int currentTaskIndex = 0;  // To track the current task for getNextTask method
+    private String jobTypeID;
+    private String name;
+    private List<TaskType> tasks;
 
-    // Güncellenmiş Constructor
-    public JobType(String jobTypeID, String name, List<Task> tasks) {
+
+    public JobType(String jobTypeID, String name, List<TaskType> tasks) {
         this.jobTypeID = jobTypeID;
         this.name = name;
         this.tasks = tasks;
     }
-
-    public JobType(String jobTypeID, List<Task> tasks) {
+    public JobType(String jobTypeID, List<TaskType> tasks) {
         this.jobTypeID = jobTypeID;
         this.tasks = tasks;
     }
-
     public JobType(String jobTypeID){
-        this.jobTypeID = jobTypeID;
-        this.tasks = new ArrayList<>();
+        this.jobTypeID=jobTypeID;
     }
 
-    // Görev tipi eklemek için metod
-    public void addTask(Task task) {
+
+
+    public void addTaskType(TaskType task) {
         if (this.tasks == null) {
             this.tasks = new ArrayList<>();
         }
         this.tasks.add(task);
     }
 
-    /**
-     * Retrieves the next task that needs to be completed.
-     * @return the next Task or null if all tasks have been completed.
-     */
-    public Task getNextTask() {
-        if (currentTaskIndex < tasks.size()) {
-            return tasks.get(currentTaskIndex++);
-        }
-        return null;  // All tasks are completed
-    }
 
-    // Getter ve Setter Metotları
     public String getJobTypeID() {
         return jobTypeID;
     }
@@ -60,12 +47,8 @@ public class JobType {
         this.name = name;
     }
 
-    public List<Task> getTasks() {
+    public List<TaskType> getTasks() {
         return tasks;
-    }
-
-    public void setTasks(List<Task> tasks) {
-        this.tasks = tasks;
     }
 
     @Override
@@ -76,4 +59,12 @@ public class JobType {
                 ", tasks=" + tasks +
                 '}';
     }
+
+    public void setTaskTypes(List<TaskType> tasks) {
+        this.tasks = tasks;
+    }
+
+
+
 }
+

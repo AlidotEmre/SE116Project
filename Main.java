@@ -1,93 +1,163 @@
-import java.time.LocalTime;
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.Map;
+import java.util.*;
+import java.io.File;
 
 public class Main {
     public static void main(String[] args) {
-        String workflowFilePath = args.length > 0 ? args[0] : "C:\\Users\\aliem\\IdeaProjects\\SE116Project\\src\\workflow.txt";
-        String jobFilePath = args.length > 1 ? args[1] : "C:\\Users\\aliem\\IdeaProjects\\SE116Project\\src\\jobs.txt";
 
-        // Parse workflow data
-        try {
-            WorkflowParser workflowParser = new WorkflowParser(workflowFilePath);
-            workflowParser.parseFile();
+        String workflowFilePath = "C:\\Users\\PC\\Desktop\\SE116-Workflow-main\\workflow.txt";
+        String jobFilePath = "C:\\Users\\PC\\Desktop\\SE116-Workflow-main\\job.txt";
 
-            System.out.println("Parsing completed successfully for workflow data.");
-            System.out.println("Loaded TaskTypes: " + workflowParser.getTaskTypes().size());
-            System.out.println("Loaded JobTypes: " + workflowParser.getJobTypes().size());
-            System.out.println("Loaded Stations: " + workflowParser.getStations().size());
 
-            // Use the parsed JobTypes for parsing jobs
-            Map<String, JobType> jobTypes = workflowParser.getJobTypes();
-            try {
-                JobFileParser jobParser = new JobFileParser(jobFilePath, jobTypes);
-                jobParser.parseFile();
+        if (!checkFileAccessibility(workflowFilePath) || !checkFileAccessibility(jobFilePath)) {
+            return;
+        }
 
-                System.out.println("Parsing completed successfully for job data.");
-                System.out.println("Parsed jobs: " + jobParser.getJobs().size());
 
-                // Simulate job processing
-                simulateJobProcessing(jobTypes, workflowParser.getStations());
-            } catch (Exception e) {
-                System.err.println("Error during parsing job data: " + e.getMessage());
+        WorkflowParser workflowParser = new WorkflowParser(workflowFilePath);
+        workflowParser.parseFile();
+
+
+        for (String errorMessage : workflowParser.errorMessageList) {
+            System.out.println("Error: " + errorMessage);
+        }
+
+
+        for (String warningMessage : workflowParser.warningMessageList) {
+            System.out.println("Warning: " + warningMessage);
+        }
+
+
+        workflowParser.printWorkflowInfo();
+
+
+        Map<String, JobType> jobTypes = workflowParser.getJobTypes();
+
+
+        JobFileParser jobFileParser = new JobFileParser(jobFilePath, jobTypes);
+        jobFileParser.parseFile();
+
+
+        for (String errorMessage : jobFileParser.getErrorMessageList()) {
+            System.out.println("Error: " + errorMessage);
+        }
+
+
+        List<JobSummary> jobSummaries = new ArrayList<>();
+        PriorityQueue<Event> eventQueue = new PriorityQueue<>(Comparator.comparingInt(Event::getTime));
+        jobFileParser.getJobs().forEach(job -> eventQueue.add(new Event(job.getStartTime(), job)));
+
+        int currentTime = 0;
+
+        while (!eventQueue.isEmpty() || workflowParser.getStations().values().stream().anyMatch(station -> !station.getExecutingTasks().isEmpty() || !station.getWaitingTasks().isEmpty())) {
+            while (!eventQueue.isEmpty() && eventQueue.peek().getTime() <= currentTime) {
+                Event event = eventQueue.poll();
+                Job job = event.getJob();
+
+                if (job.getActualStartTime() == -1) {
+                    job.setActualStartTime(currentTime);
+                }
+
+                TaskType nextTask = job.getNextTask();
+                if (nextTask != null) {
+                    assignTaskToStation(nextTask, workflowParser, currentTime, job);
+                    job.incrementTaskIndex();
+                }
             }
-        } catch (Exception e) {
-            System.err.println("Error during parsing workflow data: " + e.getMessage());
+
+            for (Station station : workflowParser.getStations().values()) {
+                List<Task> completedTasks = new ArrayList<>();
+                for (Task task : station.getExecutingTasks()) {
+                    if (currentTime >= task.getStartTime() + task.getActualDuration()) {
+                        completedTasks.add(task);
+                    }
+                }
+
+                for (Task task : completedTasks) {
+                    station.completeTask(task);
+                    Job job = findJobByTaskID(task.getTaskID(), jobFileParser.getJobs());
+                    if (job != null) {
+                        TaskType nextTask = job.getNextTask();
+                        if (nextTask != null) {
+                            assignTaskToStation(nextTask, workflowParser, currentTime, job);
+                            job.incrementTaskIndex();
+                        }
+
+
+                        if (job.getCurrentTaskIndex() == job.getJobType().getTasks().size()) {
+                            double actualDuration = currentTime - job.getActualStartTime();
+                            job.setActualEndTime(currentTime, actualDuration);
+                        }
+                    }
+                }
+
+                while (!station.getWaitingTasks().isEmpty() && station.getExecutingTasks().size() < station.getCapacity()) {
+                    station.startNextTask(currentTime);
+                }
+            }
+
+            currentTime++;
+        }
+
+        for (Job job : jobFileParser.getJobs()) {
+            double expectedDuration = job.getDuration();
+            double actualDuration = job.getActualEndTime() != -1 ? job.getActualEndTime() - job.getActualStartTime() : 0.0;
+            double difference = Math.abs(expectedDuration - actualDuration);
+            jobSummaries.add(new JobSummary(job.getJobID(), expectedDuration, actualDuration, difference, job.getActualStartTime(), job.getActualEndTime()));
+        }
+
+
+        printJobSummaries(jobSummaries);
+    }
+
+    private static void assignTaskToStation(TaskType taskType, WorkflowParser workflowParser, int currentTime, Job job) {
+        Station selectedStation = null;
+        int minLoad = Integer.MAX_VALUE;
+
+        for (Station station : workflowParser.getStations().values()) {
+            if (station.supportsTaskType(taskType.getTaskTypeID())) {
+                int currentLoad = station.getQueueSize() + station.getExecutingTasksSize();
+                if (currentLoad < minLoad) {
+                    selectedStation = station;
+                    minLoad = currentLoad;
+                }
+            }
+        }
+
+        if (selectedStation != null) {
+            double taskSpeed = selectedStation.getTaskSpeed(taskType.getTaskTypeID());
+            Task task = new Task(job.getJobID(), taskType.getTaskTypeID(), taskType.getDefaultSize(), currentTime + job.getDuration(), currentTime, taskSpeed);
+            selectedStation.addTaskToQueue(task);
+        } else {
+            System.out.println("Warning: No suitable station found for task " + taskType.getTaskTypeID());
         }
     }
 
-    private static void simulateJobProcessing(Map<String, JobType> jobTypes, Map<String, Station> stations) {
-        JobType jobType = jobTypes.get("J1");
-        if (jobType != null) {
-            TaskType taskType1 = new TaskType("TaskType1", 10.0);
-            TaskType taskType2 = new TaskType("TaskType2", 15.0);
-            Task task1 = new Task(taskType1, 10.0); // defaultSize is 10 units
-            Task task2 = new Task(taskType2, 15.0); // defaultSize is 15 units
-            jobType.addTask(task1);
-            jobType.addTask(task2);
-
-            Job job = new Job("ExampleJob", jobType, 0, 120, LocalTime.now().plusMinutes(120));
-
-            Station station1 = stations.get("Station1");
-            Station station2 = stations.get("Station2");
-
-            if (station1 == null) {
-                station1 = new Station("Station1", 2, true, false, new LinkedList<>());
-                stations.put("Station1", station1);
+    private static Job findJobByTaskID(String taskID, List<Job> jobs) {
+        for (Job job : jobs) {
+            for (TaskType taskType : job.getJobType().getTasks()) {
+                if (taskType.getTaskTypeID().equals(taskID)) {
+                    return job;
+                }
             }
-            if (station2 == null) {
-                station2 = new Station("Station2", 1, true, false, new LinkedList<>());
-                stations.put("Station2", station2);
-            }
+        }
+        return null;
+    }
 
-            Job.addStation("Station1", station1);
-            Job.addStation("Station2", station2);
+    private static boolean checkFileAccessibility(String filePath) {
+        File file = new File(filePath);
+        if (!file.exists() || !file.canRead()) {
+            System.out.println("File " + filePath + " does not exist or is not accessible.");
+            return false;
+        }
+        return true;
+    }
 
-            // Define task speeds and variations for the stations
-            station1.addTaskTypeSpeed(taskType1, 2.0, 0.0); // Speed 2 units/minute, no variation
-            station2.addTaskTypeSpeed(taskType2, 3.0, 0.0); // Speed 3 units/minute, no variation
-
-            // Start the job and update states
-            job.updateState(LocalTime.now().toSecondOfDay());
-            System.out.println("Job state after starting: " + job.getCurrentState());
-
-            // Simulate task completions
-            if (task1 != null) {
-                station1.startTask(task1); // Speed defined in the station
-                task1.setCompleted(true);
-                job.updateState(LocalTime.now().plusMinutes(5).toSecondOfDay()); // Adjusted to reflect actual completion time
-                System.out.println("Job state after completing task1: " + job.getCurrentState());
-            }
-
-            if (task2 != null) {
-                station2.startTask(task2); // Speed defined in the station
-                task2.setCompleted(true);
-                job.updateState(LocalTime.now().plusMinutes(10).toSecondOfDay()); // Adjusted to reflect actual completion time
-                System.out.println("Job state after completing task2: " + job.getCurrentState());
-            }
-        } else {
-            System.out.println("JobType J1 not found or is null");
+    private static void printJobSummaries(List<JobSummary> jobSummaries) {
+        System.out.println("Job Summaries:");
+        for (JobSummary summary : jobSummaries) {
+            System.out.println("Job ID: " + summary.getJobID() + ", Expected Duration: " + summary.getExpectedDuration() +
+                    ", Actual Duration: " + summary.getActualDuration() + ", Difference: " + summary.getDifference() +
+                    ", Start Time: " + summary.getActualStartTime() + ", End Time: " + summary.getActualEndTime());
         }
     }
 }

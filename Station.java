@@ -1,82 +1,133 @@
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Queue;
+import java.util.*;
 
 public class Station {
-    private String id;
-    private int maxCapacity;
+    private String stationID;
+    private List<TaskType> supportedTasks;
+    private int capacity;
     private boolean multiFlag;
     private boolean fifoFlag;
-    private Map<TaskType, Double> taskSpeeds;
-    private Map<TaskType, Double> taskSpeedVariations;
-    private Queue<Task> tasks;
-    private List<TaskType> supportedTasks;
+    private Queue<Task> taskQueue;
+    private Set<Task> executingTasks = new HashSet<>();
+    private Map<String, Double> taskSpeeds;
+    private Map<String, Double> taskSpeedVariations;
 
-    public Station(String id, int maxCapacity, boolean multiFlag, boolean fifoFlag, List<Task> supportedTasks) {
-        this.id = id;
-        this.maxCapacity = maxCapacity;
+    public Station(String stationID, int capacity, boolean multiFlag, boolean fifoFlag, List<TaskType> supportedTasks, Map<String, Double> taskSpeeds, Map<String, Double> taskSpeedVariations) {
+        this.stationID = stationID;
+        this.capacity = capacity;
         this.multiFlag = multiFlag;
         this.fifoFlag = fifoFlag;
-        this.taskSpeeds = new HashMap<>();
-        this.taskSpeedVariations = new HashMap<>();
-        this.tasks = new LinkedList<>();
-        this.supportedTasks = this.supportedTasks;
+        this.supportedTasks = supportedTasks;
+        this.taskSpeeds = taskSpeeds;
+        this.taskSpeedVariations = taskSpeedVariations;
+
+        if (fifoFlag) {
+            this.taskQueue = new LinkedList<>();
+        } else {
+            this.taskQueue = new PriorityQueue<>(Comparator.comparingDouble(Task::getDeadline));
+        }
     }
 
-    public void assignTask(Task task) {
-        if (task != null && canAcceptTask(task)) {
-            if (fifoFlag) {
-                tasks.offer(task);
-            } else {
-                startTask(task); // Directly start the task if FIFO is not required
+    public String getStationID() {
+        return stationID;
+    }
+
+    public List<TaskType> getSupportedTasks() {
+        return supportedTasks;
+    }
+
+    public int getCapacity() {
+        return capacity;
+    }
+
+    public boolean isMultiFlag() {
+        return multiFlag;
+    }
+
+    public boolean isFifoFlag() {
+        return fifoFlag;
+    }
+
+    public Queue<Task> getWaitingTasks() {
+        return taskQueue;
+    }
+
+    public Set<Task> getExecutingTasks() {
+        return executingTasks;
+    }
+
+    public int getQueueSize() {
+        return taskQueue.size();
+    }
+
+    public int getExecutingTasksSize() {
+        return executingTasks.size();
+    }
+
+    public boolean supportsTaskType(String taskTypeID) {
+        for (TaskType taskType : supportedTasks) {
+            if (taskType.getTaskTypeID().equals(taskTypeID)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void addTaskToQueue(Task task) {
+        taskQueue.add(task);
+        System.out.println("Task " + task.getTaskTypeID() + " added to station " + stationID + " queue with start time " + task.getStartTime() + ".");
+    }
+
+    public void startNextTask(int currentTime) {
+        if (!taskQueue.isEmpty() && executingTasks.size() < capacity) {
+            Task task = taskQueue.poll();
+            if (!executingTasks.contains(task)) {
+                executingTasks.add(task);
+                task.setStartTime(currentTime); // Görevin başlangıç zamanını güncelle
+                System.out.println("Task " + task.getTaskTypeID() + " started at station " + stationID + " at time " + currentTime);
             }
         }
     }
 
-    public void startTask(Task task) {
-        if (task == null) {
-            System.out.println("Attempted to start a null task at Station " + id);
-            return;
+    public void completeTask(Task task) {
+        if (executingTasks.contains(task)) {
+            executingTasks.remove(task);
+            System.out.println("Task " + task.getTaskTypeID() + " completed at station " + stationID);
         }
+    }
 
-        Double speed = taskSpeeds.get(task.getType());
-        if (speed == null) {
-            System.out.println("Speed not defined for task type " + task.getType().getId() + " at Station " + id);
-            return;
+    public void displayStatus() {
+        System.out.println("Station " + stationID + " status:");
+        if (executingTasks.isEmpty() && taskQueue.isEmpty()) {
+            System.out.println("  Status: Idle");
+        } else {
+            System.out.println("  Executing tasks: " + executingTasks);
+            System.out.println("  Waiting tasks: " + taskQueue);
         }
-
-        Double variation = taskSpeedVariations.get(task.getType());
-        if (variation == null) {
-            variation = 0.0; // Default variation to 0 if not defined
-        }
-
-        double adjustedSpeed = speed * (1 + variation);
-        task.startExecution(adjustedSpeed);
-        System.out.println("Task " + task.getType().getId() + " started at Station " + id + " with adjusted speed: " + adjustedSpeed);
+        System.out.println("  Capacity: " + capacity);
+        System.out.println("  MultiFlag: " + multiFlag);
+        System.out.println("  FIFOFlag: " + fifoFlag);
     }
 
-    public boolean canHandleTask(Task task) {
-        return taskSpeeds.containsKey(task.getType()); // Can handle task if speed is defined for its type
+    public double getTaskSpeed(String taskTypeID) {
+        return taskSpeeds.getOrDefault(taskTypeID, 0.0);
     }
 
-    private boolean canAcceptTask(Task task) {
-        return (multiFlag || tasks.isEmpty()) && tasks.size() < maxCapacity;
-    }
-
-    public void addTaskTypeSpeed(TaskType taskType, double speed, double plusMinus) {
-        taskSpeeds.put(taskType, speed);
-        taskSpeedVariations.put(taskType, plusMinus);
-    }
-
-    public Map<TaskType, Double> getTaskSpeeds() {
-        return taskSpeeds;
+    public double getTaskSpeedVariation(String taskTypeID) {
+        return taskSpeedVariations.getOrDefault(taskTypeID, 0.0);
     }
 
     @Override
     public String toString() {
-        return "Station{id='" + id + "', maxCapacity=" + maxCapacity + ", multiFlag=" + multiFlag +
-                ", fifoFlag=" + fifoFlag + ", taskSpeeds=" + taskSpeeds + ", taskSpeedVariations=" + taskSpeedVariations + "}";
+        return "Station{" +
+                "stationID='" + stationID + '\'' +
+                ", supportedTasks=" + supportedTasks +
+                ", capacity=" + capacity +
+                ", multiFlag=" + multiFlag +
+                ", fifoFlag=" + fifoFlag +
+                ", taskQueue=" + taskQueue +
+                ", executingTasks=" + executingTasks +
+                ", taskSpeeds=" + taskSpeeds +
+                ", taskSpeedVariations=" + taskSpeedVariations +
+                '}';
     }
 }
