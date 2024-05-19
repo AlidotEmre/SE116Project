@@ -1,15 +1,13 @@
 public class TaskType {
     private String taskTypeID;
-    private int defaultSize;
+    private double defaultSize;
 
-
-    public TaskType(String taskTypeID, int defaultSize) {
+    public TaskType(String taskTypeID, double defaultSize) {
         this.taskTypeID = taskTypeID;
         this.defaultSize = defaultSize;
     }
 
-
-    public String gettaskTypeID() {
+    public String getTaskTypeID() {
         return taskTypeID;
     }
 
@@ -17,11 +15,11 @@ public class TaskType {
         this.taskTypeID = taskTypeID;
     }
 
-    public int getDefaultSize() {
+    public double getDefaultSize() {
         return defaultSize;
     }
 
-    public void setDefaultSize(int defaultSize) {
+    public void setDefaultSize(double defaultSize) {
         this.defaultSize = defaultSize;
     }
 

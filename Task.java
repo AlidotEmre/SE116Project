@@ -1,59 +1,54 @@
-import java.time.LocalTime;
+import java.util.Random;
 
 public class Task {
-    private TaskType type;
-    private boolean isCompleted;
-    private LocalTime startTime;
-    private LocalTime endTime;
-    private int defaultSize; // unit/minute
+    private String taskID;
+    private String taskTypeID;
+    private double duration;
+    private double deadline;
 
-    public Task(TaskType type, int defaultSize) {
-        this.type = type;
-        this.defaultSize = defaultSize;
-        this.isCompleted = false;
+    public Task(String taskID, String taskTypeID, double duration, double deadline) {
+        this.taskID = taskID;
+        this.taskTypeID = taskTypeID;
+        this.duration = duration;
+        this.deadline = deadline;
     }
 
-    public void execute(LocalTime start, int stationSpeed) {
-        this.startTime = start;
-        int taskDuration = defaultSize / stationSpeed; // Station speed ile işlem süresi hesaplanır
-        this.endTime = start.plusMinutes(taskDuration);
-        this.isCompleted = true;
+    public String getTaskID() {
+        return taskID;
     }
 
-    public void setStartTime(LocalTime startTime) {
-        this.startTime = startTime;
+    public String getTaskTypeID() {
+        return taskTypeID;
     }
 
-    public void setCompleted(boolean completed) {
-        isCompleted = completed;
+    public double getDuration() {
+        return duration;
     }
 
-    public void setEndTime(LocalTime endTime) {
-        this.endTime = endTime;
+    public double getDeadline() {
+        return deadline;
     }
 
-    public void setDefaultSize(int defaultSize) {
-        this.defaultSize = defaultSize;
+
+    public double getActualDuration(double speed, double variation) {
+        Random random = new Random();
+        double minSpeed = speed * (1 - variation);
+        double maxSpeed = speed * (1 + variation);
+        double actualSpeed = minSpeed + (maxSpeed - minSpeed) * random.nextDouble();
+        return duration / actualSpeed;
     }
 
-    public void setType(TaskType type) {
-        this.type = type;
+    @Override
+    public String toString() {
+        return "Task{" +
+                "taskID='" + taskID + '\'' +
+                ", taskTypeID='" + taskTypeID + '\'' +
+                ", duration=" + duration +
+                ", deadline=" + deadline +
+                '}';
     }
 
-    public LocalTime getEndTime() {
-        return endTime;
+    public void setDeadline(double deadline) {
+        this.deadline = deadline;
     }
-
-    public LocalTime getStartTime() {
-        return startTime;
-    }
-
-    public TaskType getType() {
-        return type;
-    }
-    public int getDefaultSize() {
-        return defaultSize;
-    }
-
 }
-
