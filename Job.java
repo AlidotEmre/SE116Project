@@ -1,4 +1,5 @@
 import java.time.LocalTime;
+import java.util.*;
 
 public class Job {
     private String jobID;
@@ -7,8 +8,10 @@ public class Job {
     private int duration;
     private LocalTime deadline;
     private int currentTaskIndex;
-    private int actualStartTime;
-    private int actualEndTime;
+    private double actualStartTime;
+    private double actualEndTime;
+    private boolean completed = false; // Yeni bayrak
+    private List<Task> waitingTasks = new ArrayList<>(); // Bekleyen görevler
 
     public Job(String jobID, JobType jobType, int startTime, int duration, LocalTime deadline) {
         this.jobID = jobID;
@@ -56,20 +59,36 @@ public class Job {
         return null;
     }
 
-    public int getActualStartTime() {
+    public double getActualStartTime() {
         return actualStartTime;
     }
 
-    public void setActualStartTime(int actualStartTime) {
+    public void setActualStartTime(double actualStartTime) {
         this.actualStartTime = actualStartTime;
     }
 
-    public int getActualEndTime() {
+    public double getActualEndTime() {
         return actualEndTime;
     }
 
-    public void setActualEndTime(int actualStartTime, double actualDuration) {
-        this.actualEndTime = actualStartTime + (int) actualDuration;
+    public void setActualEndTime(double actualEndTime) {
+        this.actualEndTime = actualEndTime;
+    }
+
+    public List<Task> getWaitingTasks() {
+        return waitingTasks;
+    }
+
+    public void addWaitingTask(Task task) {
+        waitingTasks.add(task);
+    }
+
+    public boolean isCompleted() {
+        return completed;
+    }
+
+    public void setCompleted(boolean completed) {
+        this.completed = completed;
     }
 
     @Override

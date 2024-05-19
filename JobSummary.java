@@ -3,10 +3,10 @@ public class JobSummary {
     private double expectedDuration;
     private double actualDuration;
     private double difference;
-    private int actualStartTime;
-    private int actualEndTime;
+    private double actualStartTime;
+    private double actualEndTime;
 
-    public JobSummary(String jobID, double expectedDuration, double actualDuration, double difference, int actualStartTime, int actualEndTime) {
+    public JobSummary(String jobID, double expectedDuration, double actualDuration, double difference, double actualStartTime, double actualEndTime) {
         this.jobID = jobID;
         this.expectedDuration = expectedDuration;
         this.actualDuration = actualDuration;
@@ -31,11 +31,11 @@ public class JobSummary {
         return difference;
     }
 
-    public int getActualStartTime() {
+    public double getActualStartTime() {
         return actualStartTime;
     }
 
-    public int getActualEndTime() {
+    public double getActualEndTime() {
         return actualEndTime;
     }
 }
