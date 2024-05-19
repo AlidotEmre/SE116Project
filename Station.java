@@ -74,16 +74,15 @@ public class Station {
 
     public void addTaskToQueue(Task task) {
         taskQueue.add(task);
-        System.out.println("Task " + task.getTaskTypeID() + " added to station " + stationID + " queue with start time " + task.getStartTime() + ".");
+        System.out.println("Task " + task.getTaskTypeID() + " added to station " + stationID + " queue.");
     }
 
-    public void startNextTask(int currentTime) {
+    public void startNextTask() {
         if (!taskQueue.isEmpty() && executingTasks.size() < capacity) {
             Task task = taskQueue.poll();
             if (!executingTasks.contains(task)) {
                 executingTasks.add(task);
-                task.setStartTime(currentTime); // Görevin başlangıç zamanını güncelle
-                System.out.println("Task " + task.getTaskTypeID() + " started at station " + stationID + " at time " + currentTime);
+                System.out.println("Task " + task.getTaskTypeID() + " started at station " + stationID);
             }
         }
     }
