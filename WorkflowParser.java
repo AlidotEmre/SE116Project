@@ -12,8 +12,8 @@ public class WorkflowParser {
     private boolean isTaskTypeProgressContinue;
     private Map<String, JobType> jobTypes = new HashMap<>();
     private Map<String, Station> stations = new HashMap<>();
-    List<String> errorMessageList = new ArrayList<>();
-    List<String> warningMessageList = new ArrayList<>();
+    private List<String> errorMessageList = new ArrayList<>();
+    private List<String> warningMessageList = new ArrayList<>();
 
     public WorkflowParser(String filePath) {
         this.filePath = filePath;
@@ -33,18 +33,25 @@ public class WorkflowParser {
                     lineNumber++;
                     continue;
                 }
+                if(!line.startsWith("(")){
+                    System.out.println(lineNumber+". line is missing '(' ");
+                }
+                if(line.substring(line.length()-2) != " "){
 
-                if (line.startsWith("(TASKTYPES") || isTaskTypeProgressContinue) {
+                    line = line.replace(")"," )");
+
+                }
+                if (line.contains("TASKTYPES") || isTaskTypeProgressContinue) {
                     isTaskTypeProgressContinue = true;
                     parseTaskTypes(line, lineNumber);
-                    if (line.contains(")")) {
+                    if (line.endsWith(")") || line.contains("JOBTYPES")) {
                         isTaskTypeProgressContinue = false;
                     }
-                } else if (line.startsWith("(JOBTYPES") || isJobTypesSection) {
+                } else if (line.contains("JOBTYPES") || isJobTypesSection) {
                     isJobTypesSection = true;
                     parseJobTypes(reader, lineNumber);
                     isJobTypesSection = false;
-                } else if (line.startsWith("(STATIONS") || isStationsSection) {
+                } else if (line.contains("STATIONS") || isStationsSection) {
                     isStationsSection = true;
                     parseStations(reader, lineNumber);
                     isStationsSection = false;
@@ -72,8 +79,7 @@ public class WorkflowParser {
 
     private void parseTaskTypes(String line, int lineNumber) {
         if (!line.isEmpty()) {
-            List<String> splittedTaskType = new ArrayList<>();
-            splittedTaskType = Arrays.stream(line.split(" ")).toList();
+            List<String> splittedTaskType = Arrays.asList(line.split(" "));
             if (!splittedTaskType.isEmpty()) {
                 for (String currentSplittedTaskType : splittedTaskType) {
                     if (currentSplittedTaskType.startsWith("T") && !isTaskTypeContinue) {
@@ -86,17 +92,22 @@ public class WorkflowParser {
                         taskID = currentSplittedTaskType;
                     } else if (!currentSplittedTaskType.startsWith("T") && isTaskTypeContinue) {
                         if (taskTypes.containsKey(taskID)) {
-                            errorMessageList.add(taskID + ": is listed twice on Line: " + lineNumber);
-                            isTaskTypeContinue = false;
-                        }
-                        if (Double.parseDouble(currentSplittedTaskType) > 0) {
-                            currentTaskType = new TaskType(taskID, Double.parseDouble(currentSplittedTaskType));
-                            taskTypes.put(taskID, currentTaskType);
+                            errorMessageList.add("Error on line " + lineNumber + ": Task type " + taskID + " is listed twice.");
                             isTaskTypeContinue = false;
                         } else {
-                            errorMessageList.add(taskID + ": Task size cannot be negative on Line: " + lineNumber);
-                            isTaskTypeContinue = false;
-                            taskID = "";
+                            try {
+                                taskValue = Double.parseDouble(currentSplittedTaskType);
+                                if (taskValue > 0) {
+                                    currentTaskType = new TaskType(taskID, taskValue);
+                                    taskTypes.put(taskID, currentTaskType);
+                                } else {
+                                    errorMessageList.add("Error on line " + lineNumber + ": Task size for " + taskID + " cannot be negative.");
+                                }
+                                isTaskTypeContinue = false;
+                            } catch (NumberFormatException e) {
+                                errorMessageList.add("Error on line " + lineNumber + ": Invalid task size for " + taskID + ".");
+                                isTaskTypeContinue = false;
+                            }
                         }
                     }
                 }
@@ -112,6 +123,12 @@ public class WorkflowParser {
         while ((line = reader.readLine()) != null && !endOfSection) {
             line = line.trim();
             lineNumber++;
+
+            if(line.substring(line.length()-2) != " "){
+
+                line = line.replace(")"," )");
+
+            }
 
             if (line.startsWith("(STATIONS")) {
                 endOfSection = true;
@@ -142,7 +159,7 @@ public class WorkflowParser {
             for (int i = 1; i < tokens.size(); i++) {
                 String taskTypeId = tokens.get(i);
 
-                if (!taskTypeId.matches("[A-Za-z0-9]+")) {
+                if (!taskTypeId.matches("[A-Za-z0-9_]+")) {
                     errorMessageList.add("Error on line " + lineNumber + ": Invalid task type ID " + taskTypeId);
                     continue;
                 }
@@ -190,6 +207,14 @@ public class WorkflowParser {
             if (line.startsWith("(") && line.endsWith(")")) {
                 line = line.substring(1, line.length() - 1).trim();
             }
+
+            if(line.substring(line.length()-2) != " "){
+
+                line = line.replace(")"," )");
+
+            }
+
+
 
             List<String> tokens = new ArrayList<>(Arrays.asList(line.split("\\s+")));
             if (tokens.isEmpty()) continue;
@@ -303,5 +328,13 @@ public class WorkflowParser {
 
     public String getFilePath() {
         return filePath;
+    }
+
+    public List<String> getErrorMessageList() {
+        return errorMessageList;
+    }
+
+    public List<String> getWarningMessageList() {
+        return warningMessageList;
     }
 }

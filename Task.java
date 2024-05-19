@@ -5,16 +5,12 @@ public class Task {
     private String taskTypeID;
     private double duration;
     private double deadline;
-    private int startTime; // in minutes
-    private double taskSpeed;
 
-    public Task(String taskID, String taskTypeID, double duration, double deadline, int startTime, double taskSpeed) {
+    public Task(String taskID, String taskTypeID, double duration, double deadline) {
         this.taskID = taskID;
         this.taskTypeID = taskTypeID;
         this.duration = duration;
         this.deadline = deadline;
-        this.startTime = startTime;
-        this.taskSpeed = taskSpeed;
     }
 
     public String getTaskID() {
@@ -33,16 +29,13 @@ public class Task {
         return deadline;
     }
 
-    public int getStartTime() {
-        return startTime;
-    }
 
-    public void setStartTime(int startTime) {
-        this.startTime = startTime;
-    }
-
-    public double getActualDuration() {
-        return duration / taskSpeed;
+    public double getActualDuration(double speed, double variation) {
+        Random random = new Random();
+        double minSpeed = speed * (1 - variation);
+        double maxSpeed = speed * (1 + variation);
+        double actualSpeed = minSpeed + (maxSpeed - minSpeed) * random.nextDouble();
+        return duration / actualSpeed;
     }
 
     @Override
@@ -52,8 +45,10 @@ public class Task {
                 ", taskTypeID='" + taskTypeID + '\'' +
                 ", duration=" + duration +
                 ", deadline=" + deadline +
-                ", startTime=" + startTime +
-                ", taskSpeed=" + taskSpeed +
                 '}';
+    }
+
+    public void setDeadline(double deadline) {
+        this.deadline = deadline;
     }
 }

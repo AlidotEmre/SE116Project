@@ -2,77 +2,77 @@ import java.io.File;
 import java.util.*;
 
 public class Main {
+    static double totalTime;
+
     public static void main(String[] args) {
-        // Dosya yollarını direkt olarak burada belirtiyoruz
-        String workflowFilePath = "C:\\Users\\pc\\IdeaProjects\\Projee\\workflow.txt";
-        String jobFilePath = "C:\\Users\\pc\\IdeaProjects\\Projee\\job.txt";
+        Scanner sc=new Scanner(System.in);
+        System.out.println("Enter the workflow file path");
+        String workflowFilePath = sc.next();
+        System.out.println("Enter the job file path");
+        String jobFilePath = sc.next();
 
         if (!checkFileAccessibility(workflowFilePath) || !checkFileAccessibility(jobFilePath)) {
             return;
         }
 
-        // WorkflowParser ile workflow dosyasını parse ediyoruz
         WorkflowParser workflowParser = new WorkflowParser(workflowFilePath);
         workflowParser.parseFile();
 
-        // Hata mesajlarını yazdırıyoruz
         for (String errorMessage : workflowParser.getErrorMessageList()) {
             System.out.println("Error: " + errorMessage);
         }
 
-        // Uyarı mesajlarını yazdırıyoruz
         for (String warningMessage : workflowParser.getWarningMessageList()) {
             System.out.println("Warning: " + warningMessage);
         }
 
-        // Workflow bilgilerini konsola yazdır
         workflowParser.printWorkflowInfo();
 
-        // JobType'ları alıyoruz
         Map<String, JobType> jobTypes = workflowParser.getJobTypes();
 
-        // JobFileParser ile job dosyasını parse ediyoruz
         JobFileParser jobFileParser = new JobFileParser(jobFilePath, jobTypes);
         jobFileParser.parseFile();
 
-        // Hata mesajlarını yazdırıyoruz
         for (String errorMessage : jobFileParser.getErrorMessageList()) {
             System.out.println("Error: " + errorMessage);
         }
 
-        // Job'ları işliyoruz ve her işin tamamlanma süresini hesaplıyoruz
         List<JobSummary> jobSummaries = new ArrayList<>();
         PriorityQueue<Event> eventQueue = new PriorityQueue<>(Comparator.comparingDouble(Event::getTime));
         jobFileParser.getJobs().forEach(job -> eventQueue.add(new Event(job.getStartTime(), job)));
 
         double currentTime = 0.0;
+        Map<String, Double> stationIdleTimes = new HashMap<>();
+        Map<String, Double> stationActiveTimes = new HashMap<>();
+
+        workflowParser.getStations().values().forEach(station -> {
+            stationIdleTimes.put(station.getStationID(), 0.0);
+            stationActiveTimes.put(station.getStationID(), 0.0);
+        });
 
         while (!eventQueue.isEmpty() || workflowParser.getStations().values().stream().anyMatch(station -> !station.getExecutingTasks().isEmpty() || !station.getWaitingTasks().isEmpty())) {
-            // Event Queue'dan job'ları zamanlarına göre alıyoruz
             while (!eventQueue.isEmpty() && eventQueue.peek().getTime() <= currentTime) {
                 Event event = eventQueue.poll();
                 Job job = event.getJob();
 
-                // Job'ı başlatıyoruz
                 if (job.getActualStartTime() == -1) {
                     job.setActualStartTime(currentTime);
                     System.out.println("Job " + job.getJobID() + " started at time " + currentTime);
                 }
 
-                // Sıradaki görevi alıyoruz
                 TaskType nextTask = job.getNextTask();
                 if (nextTask != null) {
-                    assignTaskToStation(nextTask, job, workflowParser, currentTime, eventQueue);
+                    assignTaskToStation(nextTask, job, workflowParser, currentTime, eventQueue, stationIdleTimes, stationActiveTimes);
                 }
             }
 
-            // İstasyonlardaki görevleri işliyoruz
             for (Station station : workflowParser.getStations().values()) {
-                processTasksAtStation(station, jobFileParser.getJobs(), workflowParser, eventQueue, currentTime);
+                processTasksAtStation(station, jobFileParser.getJobs(), workflowParser, eventQueue, currentTime, stationIdleTimes, stationActiveTimes);
             }
 
+            totalTime++;
             currentTime++;
-            if(eventQueue.isEmpty()){
+            if (eventQueue.isEmpty()) {
                 break;
             }
         }
@@ -84,17 +84,15 @@ public class Main {
             jobSummaries.add(new JobSummary(job.getJobID(), expectedDuration, actualDuration, difference, job.getActualStartTime(), job.getActualEndTime()));
         }
 
-        // İşlerin özetini yazdır
         printJobSummaries(jobSummaries);
-
-        // İşlerin detaylarını yazdır
         printJobDetails(jobSummaries);
-
-        // İstasyonların durumunu yazdır
         printStationStatuses(workflowParser.getStations());
+        printAverageJobTardinessByJobType(jobSummaries);
+        printStationUtilization(stationIdleTimes, stationActiveTimes, currentTime);
+        printAverageTardiness(jobSummaries);
     }
 
-    private static void assignTaskToStation(TaskType taskType, Job job, WorkflowParser workflowParser, double currentTime, PriorityQueue<Event> eventQueue) {
+    private static void assignTaskToStation(TaskType taskType, Job job, WorkflowParser workflowParser, double currentTime, PriorityQueue<Event> eventQueue, Map<String, Double> stationIdleTimes, Map<String, Double> stationActiveTimes) {
         Station selectedStation = null;
         int minLoad = Integer.MAX_VALUE;
 
@@ -113,23 +111,24 @@ public class Main {
             selectedStation.addTaskToQueue(task);
             double taskDuration = task.getActualDuration(selectedStation.getTaskSpeed(taskType.getTaskTypeID()), selectedStation.getTaskSpeedVariation(taskType.getTaskTypeID()));
             System.out.println("Task " + task.getTaskID() + " assigned to station " + selectedStation.getStationID() + " at time " + currentTime + " and will complete in " + taskDuration + " units of time.");
-            selectedStation.startNextTask(); // İstasyondaki uygunluğu kontrol edip görevi başlatıyoruz
+            selectedStation.startNextTask();
             job.incrementTaskIndex();
             System.out.println("Job " + job.getJobID() + ": Task " + taskType.getTaskTypeID() + " assigned at time " + currentTime);
             if (job.getCurrentTaskIndex() < job.getJobType().getTasks().size()) {
                 eventQueue.add(new Event(currentTime + taskDuration, job));
             } else if (!job.isCompleted()) {
-                job.setActualEndTime(currentTime + taskDuration); // Güncellenmiş tamamlama süresi
+                job.setActualEndTime(currentTime + taskDuration);
                 job.setCompleted(true);
                 System.out.println("Job " + job.getJobID() + " completed at time " + (currentTime + taskDuration));
             }
+            stationActiveTimes.put(selectedStation.getStationID(), stationActiveTimes.get(selectedStation.getStationID()) + taskDuration);
         } else {
             System.out.println("Warning: No suitable station found for task " + taskType.getTaskTypeID());
             job.addWaitingTask(new Task(taskType.getTaskTypeID(), taskType.getTaskTypeID(), taskType.getDefaultSize(), currentTime));
         }
     }
 
-    private static void processTasksAtStation(Station station, List<Job> jobs, WorkflowParser workflowParser, PriorityQueue<Event> eventQueue, double currentTime) {
+    private static void processTasksAtStation(Station station, List<Job> jobs, WorkflowParser workflowParser, PriorityQueue<Event> eventQueue, double currentTime, Map<String, Double> stationIdleTimes, Map<String, Double> stationActiveTimes) {
         Iterator<Task> taskIterator = station.getExecutingTasks().iterator();
         while (taskIterator.hasNext()) {
             Task task = taskIterator.next();
@@ -144,20 +143,19 @@ public class Main {
                 if (job != null) {
                     if (job.getCurrentTaskIndex() < job.getJobType().getTasks().size()) {
                         TaskType nextTask = job.getNextTask();
-                        assignTaskToStation(nextTask, job, workflowParser, currentTime, eventQueue);
+                        assignTaskToStation(nextTask, job, workflowParser, currentTime, eventQueue, stationIdleTimes, stationActiveTimes);
                     } else if (!job.isCompleted()) {
                         double actualDuration = currentTime - job.getActualStartTime();
                         job.setActualEndTime(job.getActualStartTime() + actualDuration);
                         job.setCompleted(true);
                         System.out.println("Job " + job.getJobID() + " completed at time " + currentTime);
-                        // Job tamamlandığında eventQueue'dan çıkartalım
+
                         eventQueue.removeIf(event -> event.getJob().getJobID().equals(job.getJobID()));
                     }
                 }
             }
         }
 
-        // Bekleyen görevleri işlemeye başlıyoruz
         while (!station.getWaitingTasks().isEmpty() && station.getExecutingTasks().size() < station.getCapacity()) {
             station.startNextTask();
         }
@@ -213,6 +211,45 @@ public class Main {
         for (Station station : stations.values()) {
             station.displayStatus();
         }
+    }
+
+    private static void printAverageJobTardinessByJobType(List<JobSummary> jobSummaries) {
+        Map<String, List<Double>> tardinessByJobType = new HashMap<>();
+        for (JobSummary summary : jobSummaries) {
+            if (summary.getActualEndTime() > summary.getExpectedDuration()) {
+                tardinessByJobType.computeIfAbsent(summary.getJobID(), k -> new ArrayList<>())
+                        .add(summary.getActualDuration() - summary.getExpectedDuration());
+            }
+        }
+
+        System.out.println("Average Job Tardiness by Job Type:");
+        for (Map.Entry<String, List<Double>> entry : tardinessByJobType.entrySet()) {
+            double Tardiness = entry.getValue().stream().mapToDouble(Double::doubleValue).average().orElse(0.0);
+            System.out.println("Job Type: " + entry.getKey() + ",  Tardiness: " + Tardiness);
+        }
+    }
+
+    private static void printStationUtilization(Map<String, Double> stationIdleTimes, Map<String, Double> stationActiveTimes, double totalTime) {
+        System.out.println("Station Utilization:");
+        for (Map.Entry<String, Double> entry : stationActiveTimes.entrySet()) {
+            String stationID = entry.getKey();
+            double activeTime = entry.getValue();
+            double utilization = (activeTime / totalTime) * 100.0;
+            System.out.println("Station ID: " + stationID + ", Utilization: " +"%"+ utilization );
+        }
+    }
+
+    private static void printAverageTardiness(List<JobSummary> jobSummaries) {
+        double totalTardiness = 0.0;
+        int tardyJobsCount = 0;
+        for (JobSummary summary : jobSummaries) {
+            if (summary.getActualDuration() > summary.getExpectedDuration()) {
+                totalTardiness += (summary.getActualDuration() - summary.getExpectedDuration());
+                tardyJobsCount++;
+            }
+        }
+        double averageTardiness = tardyJobsCount > 0 ? totalTardiness / tardyJobsCount : 0.0;
+        System.out.println("Average Tardiness: " + averageTardiness);
     }
 }
 

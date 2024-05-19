@@ -10,8 +10,8 @@ public class Job {
     private int currentTaskIndex;
     private double actualStartTime;
     private double actualEndTime;
-    private boolean completed = false; // Yeni bayrak
-    private List<Task> waitingTasks = new ArrayList<>(); // Bekleyen görevler
+    private boolean completed = false;
+    private List<Task> waitingTasks = new ArrayList<>();
 
     public Job(String jobID, JobType jobType, int startTime, int duration, LocalTime deadline) {
         this.jobID = jobID;
